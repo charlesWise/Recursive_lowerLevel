@@ -15,8 +15,12 @@ class SourceStore extends ScreenComponent {
         this.isJump = false; //是否越级收缩
         this.breakJump = false; //跨级底部级别
         this.isJumpBreak = false; //是否跳级停止
-        this.jumpRecord = []; //纪录越级没被隐藏的isOpen为true的项
-        this.jumpFather = []; //纪录越级点击的那个父级dom
+        this.jumpRecord = []; //记录越级没被隐藏的isOpen为true的项
+        this.jumpFather = []; //记录越级点击的那个父级dom
+        this.isParentJump = false; //是否不同级别越级收缩
+        this.parentJumpFather = [];//记录上次点击越级再次越级但并非点击上次一样dom
+        this.parentJumpRecord = [];//记录不同越级之前越级没被隐藏的isOpen为true的项
+        this.parentBreakJump = false; //如果是最顶级的话记录什么时候跳出
     }
     componentWillMount() {
         this._initRepeatSource(0, this.state.sourceData);//初始化接口过来的数据
@@ -146,6 +150,39 @@ class SourceStore extends ScreenComponent {
             }
         }
     }
+    _parentJumpLayer(curLevel, curMarkindex, sourceData) {
+        if(curMarkindex == 0) {
+            this.parentBreakJump = true;
+        }
+        if(sourceData.level > curLevel&&sourceData.markindex > curMarkindex) {
+            if(sourceData.isOpen) {
+                sourceData.isOpen = !sourceData.isOpen;
+                this.parentJumpRecord.push(sourceData.markindex);
+            }
+        }
+        if(sourceData.markindex == curMarkindex) {
+            sourceData.isPackUp = !sourceData.isPackUp;
+            this.parentJumpFather.push(sourceData.markindex);
+        }
+        if(sourceData['sub']&&sourceData['sub'].length > 0) {
+            for(let i = 0; i < sourceData['sub'].length; i++) {
+                this._parentJumpLayer(curLevel, curMarkindex, sourceData['sub'][i]);
+            }
+        }
+    }
+    _recoveryParentJump(sourceData) {
+        if(this.parentJumpRecord.indexOf(sourceData.markindex) != -1) {
+            sourceData.isOpen = !sourceData.isOpen;
+        }
+        if(this.parentJumpFather.indexOf(sourceData.markindex) != -1) {
+            sourceData.isPackUp = !sourceData.isPackUp;
+        }
+        if(sourceData['sub']&&sourceData['sub'].length > 0) {
+            for(let i = 0; i < sourceData['sub'].length; i++) {
+                this._recoveryParentJump(sourceData['sub'][i]);
+            }
+        }
+    }
     _openLowerLevel(curLevel, curMarkindex) {
         this.levelNum = 0;
         this.breakIndex = 0;
@@ -156,23 +193,36 @@ class SourceStore extends ScreenComponent {
             if(this.jumpFather.indexOf(curMarkindex) != -1) {
                 this.isJump = false;
             }
+            else {
+                this.isParentJump = true;
+            }
         }
-        if(this.jumpRecord.length>0||this.jumpRecord.length>0) {
+        if(this.jumpRecord.length>0||this.jumpFather.length>0) {
             this._recoveryJumpRecord(this.state.sourceData);
         }
-        if(this.isJump) { //越级处理
-            this.jumpRecord = [];
-            this.jumpFather = [];
+        
+        if(this.isJump&&!this.isParentJump) { //越级处理
             this._jumpLayer(curLevel, curMarkindex, this.state.sourceData);
         }else {
-            if(this.jumpFather.length>0) {
-                if(this.jumpFather.indexOf(curMarkindex) != -1) {
-                    this.props.openLowerLevel&&this.props.openLowerLevel(this.state.sourceData);
+            if(this.isParentJump) { //不同越级处理
+                if((this.parentJumpRecord.length>0||this.parentJumpFather.length>0)&&this.parentBreakJump) {
+                    this._recoveryParentJump(this.state.sourceData);
+                    this.parentBreakJump = false;
+                    this.isParentJump = false;
+                }else {
+                    this._parentJumpLayer(curLevel, curMarkindex, this.state.sourceData);
                 }
-                this.jumpRecord = [];
-                this.jumpFather = [];
+                this.props.openLowerLevel&&this.props.openLowerLevel(this.state.sourceData);
             }else {
-                this._repeatOpenLevel(curLevel, curMarkindex, this.state.sourceData);
+                if(this.jumpFather.length>0) { //如果上次越级，再次展开保持之前选中状态
+                    if(this.jumpFather.indexOf(curMarkindex) != -1) {
+                        this.jumpRecord = [];
+                        this.jumpFather = [];
+                        this.props.openLowerLevel&&this.props.openLowerLevel(this.state.sourceData);
+                    }
+                }else { //否则正常展开下级
+                    this._repeatOpenLevel(curLevel, curMarkindex, this.state.sourceData);
+                }
             }
         }
         this.props.openLowerLevel&&this.props.openLowerLevel(this.state.sourceData);
