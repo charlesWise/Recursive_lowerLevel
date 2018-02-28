@@ -92,6 +92,4 @@ getStoreInfo(id, storeName, isEnd, sourceData) {
     openLowerLevel={(sourceData) => this.openLowerLevel(sourceData)}
     getStoreInfo={(id, storeName, isEnd, sourceData) => this.getStoreInfo(id, storeName, isEnd, sourceData)} />
 ```
-```
-https://github.com/chenrunsheng1991/Recursive_lowerLevel/WX20180203-162558@2x.png
-```
+* [图片](/Recursive_lowerLevel/WX20180203-162558@2x.png)
